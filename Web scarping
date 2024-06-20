@@ -1,0 +1,58 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Function to extract product information
+def extract_product_info(soup):
+    products = []
+    for item in soup.find_all('div', {'data-component-type': 's-search-result'}):
+        # Extract product name
+        name = item.h2.text.strip() if item.h2 else 'N/A'
+
+        # Extract product price
+        price_whole = item.find('span', 'a-price-whole')
+        price_fraction = item.find('span', 'a-price-fraction')
+        price = f"{price_whole.text.strip() if price_whole else ''}{price_fraction.text.strip() if price_fraction else ''}".strip() if price_whole or price_fraction else 'N/A'
+
+        # Extract product rating
+        rating = item.find('span', 'a-icon-alt')
+        rating = rating.text.strip() if rating else 'N/A'
+
+        products.append({
+            'Name': name,
+            'Price': price,
+            'Rating': rating
+        })
+    return products
+
+# Function to scrape Amazon search results
+def scrape_amazon(query):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    url = f'https://www.amazon.com/s?k={query}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"Failed to retrieve web page, status code: {response.status_code}")
+        return []
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    return extract_product_info(soup)
+
+def main():
+    query = 'pen'
+    print(f"Scraping Amazon for query: {query}")
+
+    products = scrape_amazon(query)
+    if not products:
+        print("No products found")
+        return
+
+    # Save data to CSV
+    df = pd.DataFrame(products)
+    df.to_csv('amazon_products.csv', index=False)
+    print(f"Saved {len(products)} products to amazon_products.csv")
+
+if __name__ == "__main__":
+    main()
